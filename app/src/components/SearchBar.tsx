@@ -1,10 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { OpenAlexAuthor, searchAuthorsByName, searchAuthorByOrcid } from '@/lib/openalex';
 import { detectInputFormat, InputFormat } from '@/lib/detect-format';
 
-export default function SearchBar() {
+export interface SearchBarHandle {
+  setQuery: (q: string) => void;
+}
+
+const SearchBar = forwardRef<SearchBarHandle>(function SearchBar(_, ref) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<OpenAlexAuthor[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -12,6 +16,10 @@ export default function SearchBar() {
   const [detectedFormat, setDetectedFormat] = useState<InputFormat>('unknown');
   const wrapperRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useImperativeHandle(ref, () => ({
+    setQuery: (q: string) => setQuery(q),
+  }));
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -163,4 +171,6 @@ export default function SearchBar() {
       )}
     </div>
   );
-}
+});
+
+export default SearchBar;
