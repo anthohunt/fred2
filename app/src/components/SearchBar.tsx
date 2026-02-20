@@ -1,26 +1,42 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { OpenAlexAuthor, searchAuthorsByName } from '@/lib/openalex';
+import { OpenAlexAuthor, searchAuthorsByName, searchAuthorByOrcid } from '@/lib/openalex';
+import { detectInputFormat, InputFormat } from '@/lib/detect-format';
 
 export default function SearchBar() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<OpenAlexAuthor[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [detectedFormat, setDetectedFormat] = useState<InputFormat>('unknown');
   const wrapperRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
-    if (query.length < 3) {
+    const trimmed = query.trim();
+    if (trimmed.length < 3) {
       setResults([]);
       setIsOpen(false);
+      setDetectedFormat('unknown');
       return;
     }
 
+    const format = detectInputFormat(trimmed);
+    setDetectedFormat(format);
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
-      const authors = await searchAuthorsByName(query);
+      let authors: OpenAlexAuthor[] = [];
+
+      if (format === 'orcid') {
+        const author = await searchAuthorByOrcid(trimmed);
+        if (author) authors = [author];
+      } else {
+        const res = await searchAuthorsByName(trimmed);
+        if (res) authors = res;
+      }
+
       setResults(authors);
       setIsOpen(authors.length > 0);
     }, 300);
@@ -69,6 +85,16 @@ export default function SearchBar() {
       .toUpperCase();
   }
 
+  const formatBadge = {
+    name: { label: 'Nom detecte', cls: 'bg-[rgba(96,165,250,0.2)] text-accent-blue border-[rgba(96,165,250,0.3)]' },
+    orcid: { label: 'ORCID detecte', cls: 'bg-[rgba(167,139,250,0.2)] text-accent-violet border-[rgba(167,139,250,0.3)]' },
+    scopus: { label: 'Scopus ID detecte', cls: 'bg-[rgba(245,158,11,0.2)] text-accent-yellow border-[rgba(245,158,11,0.3)]' },
+    scholar: { label: 'Google Scholar detecte', cls: 'bg-[rgba(52,211,153,0.2)] text-accent-green border-[rgba(52,211,153,0.3)]' },
+    unknown: null,
+  };
+
+  const badge = formatBadge[detectedFormat];
+
   return (
     <div ref={wrapperRef} className="relative w-full max-w-[680px]">
       <div className="relative">
@@ -93,8 +119,16 @@ export default function SearchBar() {
           placeholder="Rechercher un chercheur..."
           autoComplete="off"
           spellCheck={false}
-          className="w-full py-4 pl-12 pr-4 text-lg bg-bg-input border-2 border-border-default rounded-[14px] text-text-primary outline-none transition-all focus:border-accent-blue focus:shadow-[0_0_0_3px_rgba(96,165,250,0.15)] placeholder:text-text-muted"
+          className="w-full py-4 pl-12 pr-32 text-lg bg-bg-input border-2 border-border-default rounded-[14px] text-text-primary outline-none transition-all focus:border-accent-blue focus:shadow-[0_0_0_3px_rgba(96,165,250,0.15)] placeholder:text-text-muted"
         />
+        {badge && (
+          <span
+            data-testid="format-badge"
+            className={`absolute right-4 top-1/2 -translate-y-1/2 px-3 py-1 rounded-full text-xs font-semibold border ${badge.cls}`}
+          >
+            {badge.label}
+          </span>
+        )}
       </div>
 
       {isOpen && results.length > 0 && (

@@ -20,3 +20,12 @@ export async function searchAuthorsByName(query: string): Promise<OpenAlexAuthor
   const data: OpenAlexSearchResult = await res.json();
   return data.results;
 }
+
+export async function searchAuthorByOrcid(orcid: string): Promise<OpenAlexAuthor | null> {
+  const res = await fetch(
+    `https://api.openalex.org/authors/orcid:${encodeURIComponent(orcid)}`
+  );
+  if (!res.ok) return null;
+  const data: OpenAlexAuthor = await res.json();
+  return data;
+}
